@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /butler-runner .
 FROM alpine:3.20
 
 RUN apk add --no-cache git curl unzip gnupg ca-certificates && \
-    adduser -D -u 65534 runner
+    adduser -D -u 65532 runner
 
 COPY --from=builder /butler-runner /usr/local/bin/butler-runner
 
