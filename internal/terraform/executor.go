@@ -248,7 +248,7 @@ func SecureDelete(path string) {
 	}
 	zeros := make([]byte, info.Size())
 	_ = os.WriteFile(path, zeros, 0o600)
-	os.Remove(path)
+	_ = os.Remove(path)
 }
 
 // Variable is an alias for config.Variable.

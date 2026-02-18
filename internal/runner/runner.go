@@ -58,7 +58,7 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 		_ = cb.ReportStatus(ctx, "failed", &callback.StatusDetails{ExitCode: 1})
 		return fmt.Errorf("preparing source: %w", err)
 	}
-	defer os.RemoveAll(filepath.Dir(workDir))
+	defer func() { _ = os.RemoveAll(filepath.Dir(workDir)) }()
 
 	// 5. Write terraform.tfvars.json
 	tfvarsPath, err := terraform.WriteTfvars(workDir, execCfg.Variables, execCfg.UpstreamOutputs)

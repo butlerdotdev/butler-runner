@@ -123,7 +123,7 @@ func downloadTerraform(ctx context.Context, version, cacheDir string) error {
 	}
 
 	// Cleanup zip
-	os.Remove(zipPath)
+	_ = os.Remove(zipPath)
 
 	// Make executable
 	tfPath := filepath.Join(versionDir, "terraform")
