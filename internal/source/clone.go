@@ -47,13 +47,13 @@ func cloneGit(ctx context.Context, logger *slog.Logger, src config.SourceConfig)
 		// If branch clone fails (ref might be a commit), try full clone + checkout
 		cmd = exec.CommandContext(ctx, "git", "clone", src.GitRepo, cloneDir)
 		if output2, err2 := cmd.CombinedOutput(); err2 != nil {
-			os.RemoveAll(tmpDir)
+			_ = os.RemoveAll(tmpDir)
 			return "", fmt.Errorf("git clone failed: %s / %s: %w", string(output), string(output2), err2)
 		}
 		checkoutCmd := exec.CommandContext(ctx, "git", "checkout", src.GitRef)
 		checkoutCmd.Dir = cloneDir
 		if output3, err3 := checkoutCmd.CombinedOutput(); err3 != nil {
-			os.RemoveAll(tmpDir)
+			_ = os.RemoveAll(tmpDir)
 			return "", fmt.Errorf("git checkout failed: %s: %w", string(output3), err3)
 		}
 	}
@@ -62,7 +62,7 @@ func cloneGit(ctx context.Context, logger *slog.Logger, src config.SourceConfig)
 	if src.WorkingDirectory != "" {
 		workDir = filepath.Join(cloneDir, src.WorkingDirectory)
 		if _, err := os.Stat(workDir); err != nil {
-			os.RemoveAll(tmpDir)
+			_ = os.RemoveAll(tmpDir)
 			return "", fmt.Errorf("working directory %s not found in repo: %w", src.WorkingDirectory, err)
 		}
 	}

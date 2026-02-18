@@ -16,7 +16,7 @@ import (
 
 func TestWatcherDetectsCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "cancelled",
 		})
 	}))
@@ -32,7 +32,7 @@ func TestWatcherDetectsCancellation(t *testing.T) {
 
 func TestWatcherNotCancelled(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "running",
 		})
 	}))
@@ -48,7 +48,7 @@ func TestWatcherNotCancelled(t *testing.T) {
 
 func TestWatcherStopsOnContextCancel(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "running",
 		})
 	}))

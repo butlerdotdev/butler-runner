@@ -64,7 +64,7 @@ func (w *Watcher) isCancelled(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Status string `json:"status"`

@@ -88,7 +88,7 @@ func (c *Client) post(ctx context.Context, path string, body interface{}) error 
 	if err != nil {
 		return fmt.Errorf("posting to %s: %w", path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("callback %s returned %d", path, resp.StatusCode)
