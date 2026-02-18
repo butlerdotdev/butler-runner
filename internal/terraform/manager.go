@@ -16,19 +16,36 @@ import (
 
 const defaultVersion = "1.9.8"
 
-// ResolveVersion returns the path to a terraform binary for the requested version.
+// binaryNames is the ordered list of IaC binaries to search on PATH.
+// OpenTofu is preferred since it is CNCF-maintained and properly code-signed.
+var binaryNames = []string{"tofu", "terraform"}
+
+// ResolveVersion returns the path to a terraform/tofu binary for the requested version.
+// It checks both tofu and terraform on PATH, then falls back to downloading.
 func ResolveVersion(ctx context.Context, logger *slog.Logger, version string) (string, error) {
 	if version == "" {
 		version = defaultVersion
 	}
 
-	// Check if terraform is already on PATH and matches version
-	if path, err := exec.LookPath("terraform"); err == nil {
-		if installedVersion, err := getInstalledVersion(ctx, path); err == nil {
-			if installedVersion == version {
-				logger.Info("using system terraform", "version", version, "path", path)
-				return path, nil
+	// Check if tofu or terraform is on PATH and matches version
+	for _, bin := range binaryNames {
+		if path, err := exec.LookPath(bin); err == nil {
+			if installedVersion, err := getInstalledVersion(ctx, path); err == nil {
+				if installedVersion == version {
+					logger.Info("using system binary", "binary", bin, "version", version, "path", path)
+					return path, nil
+				}
+				logger.Info("system binary version mismatch", "binary", bin, "installed", installedVersion, "requested", version)
 			}
+		}
+	}
+
+	// If any binary is on PATH regardless of version, use it (local mode convenience).
+	// This allows local testing with whatever version is installed.
+	for _, bin := range binaryNames {
+		if path, err := exec.LookPath(bin); err == nil {
+			logger.Info("using system binary (version mismatch accepted)", "binary", bin, "path", path)
+			return path, nil
 		}
 	}
 
@@ -62,28 +79,20 @@ func getCacheDir() string {
 }
 
 func getInstalledVersion(ctx context.Context, path string) (string, error) {
-	cmd := exec.CommandContext(ctx, path, "version", "-json")
+	cmd := exec.CommandContext(ctx, path, "version")
 	output, err := cmd.Output()
 	if err != nil {
-		// Fallback: parse text output
-		cmd = exec.CommandContext(ctx, path, "version")
-		output, err = cmd.Output()
-		if err != nil {
-			return "", err
-		}
-		// Parse "Terraform v1.9.8\n..."
-		lines := strings.Split(string(output), "\n")
-		if len(lines) > 0 {
-			parts := strings.Fields(lines[0])
-			if len(parts) >= 2 {
-				return strings.TrimPrefix(parts[1], "v"), nil
-			}
-		}
-		return "", fmt.Errorf("could not parse terraform version")
+		return "", err
 	}
-	// JSON output contains {"terraform_version": "1.9.8", ...}
-	_ = output
-	return "", fmt.Errorf("version parsing not implemented for JSON output")
+	// Parse "Terraform v1.9.8" or "OpenTofu v1.11.5"
+	lines := strings.Split(string(output), "\n")
+	if len(lines) > 0 {
+		parts := strings.Fields(lines[0])
+		if len(parts) >= 2 {
+			return strings.TrimPrefix(parts[len(parts)-1], "v"), nil
+		}
+	}
+	return "", fmt.Errorf("could not parse version output: %s", string(output))
 }
 
 func downloadTerraform(ctx context.Context, version, cacheDir string) error {
