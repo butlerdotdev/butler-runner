@@ -19,6 +19,11 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
       - name: Build butler-runner
         run: CGO_ENABLED=0 go build -ldflags="-s -w" -o butler-runner .
 
