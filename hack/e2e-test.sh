@@ -70,12 +70,26 @@ run_sql_multi() {
 
 # --- Test data ---
 
-ARTIFACT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-ENV_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-MODULE_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
-RUN_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+gen_uuid() {
+  if [ -f /proc/sys/kernel/random/uuid ]; then
+    cat /proc/sys/kernel/random/uuid
+  elif command -v uuidgen >/dev/null 2>&1; then
+    uuidgen | tr '[:upper:]' '[:lower:]'
+  else
+    # Fallback: generate v4 UUID from random bytes
+    local hex
+    hex=$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')
+    printf '%s-%s-4%s-%s-%s\n' \
+      "${hex:0:8}" "${hex:8:4}" "${hex:13:3}" "${hex:16:4}" "${hex:20:12}"
+  fi
+}
+
+ARTIFACT_ID=$(gen_uuid)
+ENV_ID=$(gen_uuid)
+MODULE_ID=$(gen_uuid)
+RUN_ID=$(gen_uuid)
 CALLBACK_TOKEN="brce_$(openssl rand -hex 32)"
-TOKEN_HASH=$(echo -n "$CALLBACK_TOKEN" | shasum -a 256 | awk '{print $1}')
+TOKEN_HASH=$(echo -n "$CALLBACK_TOKEN" | sha256sum | awk '{print $1}')
 
 # --- Cleanup trap ---
 
