@@ -1,0 +1,37 @@
+# Copyright 2026 The Butler Authors.
+# SPDX-License-Identifier: Apache-2.0
+name: E2E Test
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  e2e:
+    runs-on: butler-runners
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build butler-runner
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o butler-runner .
+
+      - name: Write portal kubeconfig
+        run: echo "${{ secrets.PORTAL_KUBECONFIG }}" | base64 -d > /tmp/butler-portal-kubeconfig
+
+      - name: Run E2E test
+        env:
+          PORTAL_KUBECONFIG: /tmp/butler-portal-kubeconfig
+          BUTLER_PORTAL_URL: https://portal.butlerlabs.dev/api/registry
+          BUTLER_RUNNER_BIN: ./butler-runner
+        run: bash hack/e2e-test.sh
+
+      - name: Cleanup kubeconfig
+        if: always()
+        run: rm -f /tmp/butler-portal-kubeconfig
