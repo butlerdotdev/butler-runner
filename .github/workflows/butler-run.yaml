@@ -10,22 +10,63 @@
 #   callback_token:  brce_ callback token for authentication
 #   operation:       plan | apply | destroy
 #   module_name:     Human-readable module name (for logging)
+#   gcp_wif_provider:   (optional) GCP Workload Identity Federation provider
+#   gcp_service_account: (optional) GCP service account for WIF
+#   gcp_project_id:     (optional) GCP project ID
+#   aws_role_arn:       (optional) AWS IAM role ARN for OIDC
+#   aws_region:         (optional) AWS region
 
 name: Butler Run
 on:
   repository_dispatch:
     types: [butler-run]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   run:
     runs-on: butler-runners
     timeout-minutes: 30
     steps:
+      # GCP OIDC authentication (if configured)
+      - name: Authenticate to GCP
+        if: github.event.client_payload.gcp_wif_provider != ''
+        id: gcp-auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ github.event.client_payload.gcp_wif_provider }}
+          service_account: ${{ github.event.client_payload.gcp_service_account }}
+          project_id: ${{ github.event.client_payload.gcp_project_id }}
+          create_credentials_file: true
+
+      # Remap credentials path from host to Docker container mount point
+      - name: Remap GCP credentials path
+        if: steps.gcp-auth.outcome == 'success'
+        id: remap-gcp
+        run: |
+          ORIG="${{ steps.gcp-auth.outputs.credentials_file_path }}"
+          REMAPPED=$(echo "$ORIG" | sed "s|$RUNNER_TEMP|/github/runner_temp|")
+          echo "creds_path=$REMAPPED" >> "$GITHUB_OUTPUT"
+
+      # AWS OIDC authentication (if configured)
+      - name: Authenticate to AWS
+        if: github.event.client_payload.aws_role_arn != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ github.event.client_payload.aws_role_arn }}
+          aws-region: ${{ github.event.client_payload.aws_region || 'us-east-1' }}
+
       - name: Run butler-runner
         uses: docker://ghcr.io/butlerdotdev/butler-runner:0.1.2
         env:
           BUTLER_URL: ${{ github.event.client_payload.butler_url }}
           BUTLER_RUN_ID: ${{ github.event.client_payload.run_id }}
           BUTLER_TOKEN: ${{ github.event.client_payload.callback_token }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.remap-gcp.outputs.creds_path || '' }}
+          GOOGLE_PROJECT: ${{ github.event.client_payload.gcp_project_id || '' }}
+          AWS_REGION: ${{ github.event.client_payload.aws_region || '' }}
+          AWS_DEFAULT_REGION: ${{ github.event.client_payload.aws_region || '' }}
         with:
           args: exec
