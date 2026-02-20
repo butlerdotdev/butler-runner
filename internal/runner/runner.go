@@ -93,6 +93,15 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 	}
 	defer terraform.SecureDelete(tfvarsPath)
 
+	// 6b. Write backend override if configured
+	if execCfg.StateBackend != nil {
+		logger.Info("state backend configured", "type", execCfg.StateBackend.Type)
+		if err := terraform.WriteBackendOverride(workDir, execCfg.StateBackend); err != nil {
+			_ = cb.ReportStatus(ctx, "failed", &callback.StatusDetails{ExitCode: 1})
+			return fmt.Errorf("writing backend config: %w", err)
+		}
+	}
+
 	// 7. Start cancellation watcher
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
