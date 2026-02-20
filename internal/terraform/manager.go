@@ -71,6 +71,11 @@ func ResolveVersion(ctx context.Context, logger *slog.Logger, version string) (s
 }
 
 func getCacheDir() string {
+	// Prefer RUNNER_TEMP (GitHub Actions sets this to a writable dir).
+	// HOME inside Docker container actions (/github/home) is often root-owned.
+	if d := os.Getenv("RUNNER_TEMP"); d != "" {
+		return filepath.Join(d, ".butler-runner", "terraform")
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return filepath.Join(os.TempDir(), ".butler-runner", "terraform")
