@@ -13,6 +13,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/butlerdotdev/butler-runner/internal/config"
@@ -173,6 +175,7 @@ func (e *Executor) apply(ctx context.Context) (*RunResult, error) {
 	result := &RunResult{
 		ExitCode: exitCode,
 	}
+	parseSummaryCounts(stdout.String(), result)
 
 	// Get outputs
 	outputCmd := exec.CommandContext(ctx, e.tfPath, "output", "-json")
@@ -220,6 +223,7 @@ func (e *Executor) destroy(ctx context.Context) (*RunResult, error) {
 	result := &RunResult{
 		ExitCode: exitCode,
 	}
+	parseSummaryCounts(stdout.String(), result)
 
 	if err != nil {
 		return result, fmt.Errorf("terraform destroy: %s: %w", stderr.String(), err)
@@ -290,6 +294,27 @@ func SecureDelete(path string) {
 	zeros := make([]byte, info.Size())
 	_ = os.WriteFile(path, zeros, 0o600)
 	_ = os.Remove(path)
+}
+
+// parseSummaryCounts extracts resource counts from terraform apply/destroy
+// summary lines such as:
+//
+//	"Apply complete! Resources: 1 added, 0 changed, 0 destroyed."
+//	"Destroy complete! Resources: 3 destroyed."
+var summaryRe = regexp.MustCompile(`(\d+) (added|changed|destroyed)`)
+
+func parseSummaryCounts(output string, result *RunResult) {
+	for _, match := range summaryRe.FindAllStringSubmatch(output, -1) {
+		n, _ := strconv.Atoi(match[1])
+		switch match[2] {
+		case "added":
+			result.ResourcesToAdd = n
+		case "changed":
+			result.ResourcesToChange = n
+		case "destroyed":
+			result.ResourcesToDestroy = n
+		}
+	}
 }
 
 // Variable is an alias for config.Variable.
