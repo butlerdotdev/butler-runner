@@ -41,14 +41,18 @@ jobs:
           project_id: ${{ github.event.client_payload.gcp_project_id }}
           create_credentials_file: true
 
-      # Remap credentials path from host to Docker container mount point
-      - name: Remap GCP credentials path
+      # Fix permissions and remap path for Docker container
+      # google-github-actions/auth writes to the workspace (host: /home/runner/_work/...)
+      # which maps to /github/workspace inside the Docker container.
+      # The file is root-owned but the container runs as uid 65532.
+      - name: Fix GCP credentials for container
         if: steps.gcp-auth.outcome == 'success'
-        id: remap-gcp
+        id: gcp-creds
         run: |
-          ORIG="${{ steps.gcp-auth.outputs.credentials_file_path }}"
-          REMAPPED=$(echo "$ORIG" | sed "s|$RUNNER_TEMP|/github/runner_temp|")
-          echo "creds_path=$REMAPPED" >> "$GITHUB_OUTPUT"
+          CREDS_FILE="${{ steps.gcp-auth.outputs.credentials_file_path }}"
+          chmod 644 "$CREDS_FILE"
+          BASENAME=$(basename "$CREDS_FILE")
+          echo "container_path=/github/workspace/$BASENAME" >> "$GITHUB_OUTPUT"
 
       # AWS OIDC authentication (if configured)
       - name: Authenticate to AWS
@@ -64,7 +68,7 @@ jobs:
           BUTLER_URL: ${{ github.event.client_payload.butler_url }}
           BUTLER_RUN_ID: ${{ github.event.client_payload.run_id }}
           BUTLER_TOKEN: ${{ github.event.client_payload.callback_token }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.remap-gcp.outputs.creds_path || '' }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.gcp-creds.outputs.container_path || '' }}
           GOOGLE_PROJECT: ${{ github.event.client_payload.gcp_project_id || '' }}
           AWS_REGION: ${{ github.event.client_payload.aws_region || '' }}
           AWS_DEFAULT_REGION: ${{ github.event.client_payload.aws_region || '' }}
