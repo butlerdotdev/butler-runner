@@ -60,7 +60,30 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 	}
 	defer func() { _ = os.RemoveAll(filepath.Dir(workDir)) }()
 
-	// 5. Write terraform.tfvars.json
+	// 5. Set cloud integration / variable set env vars
+	var envVarKeys []string
+	for key, v := range execCfg.EnvVars {
+		val, ok := v.Value.(string)
+		if !ok {
+			continue
+		}
+		if err := os.Setenv(key, val); err != nil {
+			logger.Warn("failed to set env var", "key", key, "error", err)
+			continue
+		}
+		envVarKeys = append(envVarKeys, key)
+	}
+	if len(envVarKeys) > 0 {
+		logger.Info("env vars set for terraform", "count", len(envVarKeys), "keys", envVarKeys)
+	}
+	// Clean up env vars after run completes
+	defer func() {
+		for _, key := range envVarKeys {
+			_ = os.Unsetenv(key)
+		}
+	}()
+
+	// 6. Write terraform.tfvars.json
 	tfvarsPath, err := terraform.WriteTfvars(workDir, execCfg.Variables, execCfg.UpstreamOutputs)
 	if err != nil {
 		_ = cb.ReportStatus(ctx, "failed", &callback.StatusDetails{ExitCode: 1})
@@ -68,13 +91,13 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 	}
 	defer terraform.SecureDelete(tfvarsPath)
 
-	// 6. Start cancellation watcher
+	// 7. Start cancellation watcher
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
 	watcher := cancel.NewWatcher(cfg.ButlerURL, cfg.RunID, cfg.Token, logger)
 	go watcher.Start(cancelCtx, cancelFunc)
 
-	// 7. Run terraform
+	// 8. Run terraform
 	exec := terraform.NewExecutor(tfPath, workDir, logger)
 
 	// Init
@@ -100,7 +123,7 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 		return fmt.Errorf("terraform %s: %w", execCfg.Operation, err)
 	}
 
-	// 8. Report success
+	// 9. Report success
 	details := &callback.StatusDetails{
 		ExitCode:           result.ExitCode,
 		ResourcesToAdd:     result.ResourcesToAdd,
@@ -118,7 +141,7 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 		logger.Warn("failed to report success status", "error", err)
 	}
 
-	// 9. Report outputs if apply
+	// 10. Report outputs if apply
 	if result.Outputs != nil {
 		if err := cb.ReportOutputs(ctx, result.Outputs); err != nil {
 			logger.Warn("failed to report outputs", "error", err)

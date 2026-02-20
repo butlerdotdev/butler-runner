@@ -19,6 +19,7 @@ type ExecutionConfig struct {
 	TerraformVersion string                 `json:"terraformVersion"`
 	Source           SourceConfig           `json:"source"`
 	Variables        map[string]Variable    `json:"variables"`
+	EnvVars          map[string]Variable    `json:"envVars"`
 	UpstreamOutputs  map[string]interface{} `json:"upstreamOutputs"`
 	StateBackend     *StateBackendConfig    `json:"stateBackend"`
 	Callbacks        CallbackURLs           `json:"callbacks"`
@@ -83,6 +84,7 @@ func FetchConfig(ctx context.Context, logger *slog.Logger, butlerURL, runID, tok
 		"terraformVersion", cfg.TerraformVersion,
 		"sourceType", cfg.Source.Type,
 		"variableCount", len(cfg.Variables),
+		"envVarCount", len(cfg.EnvVars),
 	)
 
 	return &cfg, nil
