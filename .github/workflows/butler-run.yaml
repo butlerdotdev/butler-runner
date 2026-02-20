@@ -63,7 +63,7 @@ jobs:
           aws-region: ${{ github.event.client_payload.aws_region || 'us-east-1' }}
 
       - name: Run butler-runner
-        uses: docker://ghcr.io/butlerdotdev/butler-runner:0.1.2
+        uses: docker://ghcr.io/butlerdotdev/butler-runner:0.1.3
         env:
           BUTLER_URL: ${{ github.event.client_payload.butler_url }}
           BUTLER_RUN_ID: ${{ github.event.client_payload.run_id }}
