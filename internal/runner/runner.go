@@ -9,10 +9,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/butlerdotdev/butler-runner/internal/callback"
 	"github.com/butlerdotdev/butler-runner/internal/cancel"
 	"github.com/butlerdotdev/butler-runner/internal/config"
+	"github.com/butlerdotdev/butler-runner/internal/logstream"
 	"github.com/butlerdotdev/butler-runner/internal/source"
 	"github.com/butlerdotdev/butler-runner/internal/terraform"
 )
@@ -97,8 +99,15 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 	watcher := cancel.NewWatcher(cfg.ButlerURL, cfg.RunID, cfg.Token, logger)
 	go watcher.Start(cancelCtx, cancelFunc)
 
-	// 8. Run terraform
+	// 8. Set up log streaming
+	stdoutLog := logstream.NewWriter(ctx, cb, "stdout", logger, 2*time.Second, 0)
+	stderrLog := logstream.NewWriter(ctx, cb, "stderr", logger, 2*time.Second, stdoutLog.Sequence())
+	defer stderrLog.Close()
+	defer stdoutLog.Close()
+
+	// 9. Run terraform
 	exec := terraform.NewExecutor(tfPath, workDir, logger)
+	exec.SetLogWriters(stdoutLog, stderrLog)
 
 	// Init
 	logger.Info("running terraform init")
@@ -123,7 +132,7 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 		return fmt.Errorf("terraform %s: %w", execCfg.Operation, err)
 	}
 
-	// 9. Report success
+	// 10. Report success
 	details := &callback.StatusDetails{
 		ExitCode:           result.ExitCode,
 		ResourcesToAdd:     result.ResourcesToAdd,
@@ -141,7 +150,7 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 		logger.Warn("failed to report success status", "error", err)
 	}
 
-	// 10. Report outputs if apply
+	// 11. Report outputs if apply
 	if result.Outputs != nil {
 		if err := cb.ReportOutputs(ctx, result.Outputs); err != nil {
 			logger.Warn("failed to report outputs", "error", err)

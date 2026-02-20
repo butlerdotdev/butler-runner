@@ -62,6 +62,23 @@ func (c *Client) ReportStatus(ctx context.Context, status string, details *Statu
 	return c.post(ctx, c.callbacks.StatusURL, body)
 }
 
+// LogEntry is a single log line sent to the portal.
+type LogEntry struct {
+	Sequence int    `json:"sequence"`
+	Stream   string `json:"stream"`
+	Content  string `json:"content"`
+}
+
+// SendLogs posts a batch of log entries.
+func (c *Client) SendLogs(ctx context.Context, logs []LogEntry) error {
+	if len(logs) == 0 {
+		return nil
+	}
+	return c.post(ctx, c.callbacks.LogsURL, map[string]interface{}{
+		"logs": logs,
+	})
+}
+
 // ReportOutputs posts terraform outputs.
 func (c *Client) ReportOutputs(ctx context.Context, outputs map[string]interface{}) error {
 	return c.post(ctx, c.callbacks.OutputsURL, map[string]interface{}{

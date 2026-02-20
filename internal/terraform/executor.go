@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -33,6 +34,8 @@ type Executor struct {
 	tfPath     string
 	workingDir string
 	logger     *slog.Logger
+	stdout     io.Writer // optional: tee stdout to this writer
+	stderr     io.Writer // optional: tee stderr to this writer
 }
 
 // NewExecutor creates a new terraform executor.
@@ -44,6 +47,12 @@ func NewExecutor(tfPath, workingDir string, logger *slog.Logger) *Executor {
 	}
 }
 
+// SetLogWriters sets optional writers that receive copies of terraform stdout/stderr.
+func (e *Executor) SetLogWriters(stdout, stderr io.Writer) {
+	e.stdout = stdout
+	e.stderr = stderr
+}
+
 // Init runs terraform init.
 func (e *Executor) Init(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, e.tfPath, "init", "-input=false", "-no-color")
@@ -51,8 +60,16 @@ func (e *Executor) Init(ctx context.Context) error {
 	cmd.Env = append(os.Environ(), "TF_IN_AUTOMATION=1")
 
 	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = os.Stdout
+	if e.stderr != nil {
+		cmd.Stderr = io.MultiWriter(&stderr, e.stderr)
+	} else {
+		cmd.Stderr = &stderr
+	}
+	if e.stdout != nil {
+		cmd.Stdout = io.MultiWriter(os.Stdout, e.stdout)
+	} else {
+		cmd.Stdout = os.Stdout
+	}
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("terraform init failed: %s: %w", stderr.String(), err)
@@ -82,8 +99,16 @@ func (e *Executor) plan(ctx context.Context) (*RunResult, error) {
 	cmd.Env = append(os.Environ(), "TF_IN_AUTOMATION=1")
 
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	if e.stdout != nil {
+		cmd.Stdout = io.MultiWriter(&stdout, e.stdout)
+	} else {
+		cmd.Stdout = &stdout
+	}
+	if e.stderr != nil {
+		cmd.Stderr = io.MultiWriter(&stderr, e.stderr)
+	} else {
+		cmd.Stderr = &stderr
+	}
 
 	err := cmd.Run()
 	exitCode := 0
@@ -126,8 +151,16 @@ func (e *Executor) apply(ctx context.Context) (*RunResult, error) {
 	cmd.Env = append(os.Environ(), "TF_IN_AUTOMATION=1")
 
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	if e.stdout != nil {
+		cmd.Stdout = io.MultiWriter(&stdout, e.stdout)
+	} else {
+		cmd.Stdout = &stdout
+	}
+	if e.stderr != nil {
+		cmd.Stderr = io.MultiWriter(&stderr, e.stderr)
+	} else {
+		cmd.Stderr = &stderr
+	}
 
 	err := cmd.Run()
 	exitCode := 0
@@ -165,8 +198,16 @@ func (e *Executor) destroy(ctx context.Context) (*RunResult, error) {
 	cmd.Env = append(os.Environ(), "TF_IN_AUTOMATION=1")
 
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	if e.stdout != nil {
+		cmd.Stdout = io.MultiWriter(&stdout, e.stdout)
+	} else {
+		cmd.Stdout = &stdout
+	}
+	if e.stderr != nil {
+		cmd.Stderr = io.MultiWriter(&stderr, e.stderr)
+	} else {
+		cmd.Stderr = &stderr
+	}
 
 	err := cmd.Run()
 	exitCode := 0
