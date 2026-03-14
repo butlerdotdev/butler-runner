@@ -102,6 +102,12 @@ func RunManaged(ctx context.Context, logger *slog.Logger, cfg ManagedConfig) err
 		}
 	}
 
+	// 6c. Write provider overrides if needed (e.g. azurerm requires features {})
+	if err := terraform.WriteProviderOverrides(workDir, envVarKeys); err != nil {
+		_ = cb.ReportStatus(ctx, "failed", &callback.StatusDetails{ExitCode: 1})
+		return fmt.Errorf("writing provider overrides: %w", err)
+	}
+
 	// 7. Start cancellation watcher
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
