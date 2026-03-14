@@ -28,13 +28,9 @@ func WriteBackendOverride(workDir string, backend *config.StateBackendConfig) er
 	defer func() { _ = f.Close() }()
 
 	if backend.Type == "s3" {
-		if err := writeS3Backend(f, backend.Config); err != nil {
-			return err
-		}
+		writeS3Backend(f, backend.Config)
 	} else {
-		if err := writeGenericBackend(f, backend.Type, backend.Config); err != nil {
-			return err
-		}
+		writeGenericBackend(f, backend.Type, backend.Config)
 	}
 
 	if err := f.Close(); err != nil {
@@ -46,46 +42,45 @@ func WriteBackendOverride(workDir string, backend *config.StateBackendConfig) er
 
 // writeS3Backend writes an S3-compatible backend block with Terraform's
 // S3-specific skip flags for use with MinIO and other S3-compatible stores.
-func writeS3Backend(f *os.File, cfg map[string]interface{}) error {
-	fmt.Fprintf(f, "terraform {\n")
-	fmt.Fprintf(f, "  backend \"s3\" {\n")
+func writeS3Backend(f *os.File, cfg map[string]interface{}) {
+	_, _ = fmt.Fprintf(f, "terraform {\n")
+	_, _ = fmt.Fprintf(f, "  backend \"s3\" {\n")
 
 	if v, ok := cfg["bucket"]; ok {
-		fmt.Fprintf(f, "    bucket                      = %s\n", hclValue(v))
+		_, _ = fmt.Fprintf(f, "    bucket                      = %s\n", hclValue(v))
 	}
 	if v, ok := cfg["key"]; ok {
-		fmt.Fprintf(f, "    key                         = %s\n", hclValue(v))
+		_, _ = fmt.Fprintf(f, "    key                         = %s\n", hclValue(v))
 	}
 	if v, ok := cfg["region"]; ok {
-		fmt.Fprintf(f, "    region                      = %s\n", hclValue(v))
+		_, _ = fmt.Fprintf(f, "    region                      = %s\n", hclValue(v))
 	}
 	if v, ok := cfg["endpoint"]; ok {
-		fmt.Fprintf(f, "    endpoints                   = { s3 = %s }\n", hclValue(v))
+		_, _ = fmt.Fprintf(f, "    endpoints                   = { s3 = %s }\n", hclValue(v))
 	}
 
-	fmt.Fprintf(f, "    skip_credentials_validation = true\n")
-	fmt.Fprintf(f, "    skip_requesting_account_id  = true\n")
-	fmt.Fprintf(f, "    skip_metadata_api_check     = true\n")
-	fmt.Fprintf(f, "    skip_region_validation      = true\n")
-	fmt.Fprintf(f, "    use_path_style              = true\n")
+	_, _ = fmt.Fprintf(f, "    skip_credentials_validation = true\n")
+	_, _ = fmt.Fprintf(f, "    skip_requesting_account_id  = true\n")
+	_, _ = fmt.Fprintf(f, "    skip_metadata_api_check     = true\n")
+	_, _ = fmt.Fprintf(f, "    skip_region_validation      = true\n")
+	_, _ = fmt.Fprintf(f, "    use_path_style              = true\n")
 
 	if v, ok := cfg["access_key"]; ok {
-		fmt.Fprintf(f, "    access_key                  = %s\n", hclValue(v))
+		_, _ = fmt.Fprintf(f, "    access_key                  = %s\n", hclValue(v))
 	}
 	if v, ok := cfg["secret_key"]; ok {
-		fmt.Fprintf(f, "    secret_key                  = %s\n", hclValue(v))
+		_, _ = fmt.Fprintf(f, "    secret_key                  = %s\n", hclValue(v))
 	}
 
-	fmt.Fprintf(f, "  }\n")
-	fmt.Fprintf(f, "}\n")
-	return nil
+	_, _ = fmt.Fprintf(f, "  }\n")
+	_, _ = fmt.Fprintf(f, "}\n")
 }
 
 // writeGenericBackend writes a backend block for any backend type, emitting
 // all config keys in sorted order.
-func writeGenericBackend(f *os.File, backendType string, cfg map[string]interface{}) error {
-	fmt.Fprintf(f, "terraform {\n")
-	fmt.Fprintf(f, "  backend %q {\n", backendType)
+func writeGenericBackend(f *os.File, backendType string, cfg map[string]interface{}) {
+	_, _ = fmt.Fprintf(f, "terraform {\n")
+	_, _ = fmt.Fprintf(f, "  backend %q {\n", backendType)
 
 	// Sort keys for deterministic output.
 	keys := make([]string, 0, len(cfg))
@@ -95,12 +90,11 @@ func writeGenericBackend(f *os.File, backendType string, cfg map[string]interfac
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		fmt.Fprintf(f, "    %s = %s\n", k, hclValue(cfg[k]))
+		_, _ = fmt.Fprintf(f, "    %s = %s\n", k, hclValue(cfg[k]))
 	}
 
-	fmt.Fprintf(f, "  }\n")
-	fmt.Fprintf(f, "}\n")
-	return nil
+	_, _ = fmt.Fprintf(f, "  }\n")
+	_, _ = fmt.Fprintf(f, "}\n")
 }
 
 // hclValue formats a Go value as an HCL literal. Strings are quoted,
